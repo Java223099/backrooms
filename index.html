@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced First Person Maze Game</title>
+    <title>Улучшенная игра в лабиринт от первого лица</title>
     <style>
         body {
             margin: 0;
@@ -73,19 +73,108 @@
             font-size: 24px;
             text-shadow: 1px 1px 2px black;
         }
+        #instructions {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+            text-shadow: 1px 1px 2px black;
+            pointer-events: none;
+        }
+        #instructions p {
+            pointer-events: auto;
+        }
+        #shop {
+            position: absolute;
+            top: 20%;
+            left: 20%;
+            width: 60%;
+            height: 60%;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            display: none;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        #shop h2 {
+            text-align: center;
+        }
+        #shop ul {
+            list-style: none;
+            padding: 0;
+        }
+        #shop li {
+            margin: 10px 0;
+        }
+        #shop button {
+            margin-left: 10px;
+        }
+        #close-shop {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        #rotate-message {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            color: white;
+            text-align: center;
+            padding-top: 40%;
+            display: none;
+            z-index: 999;
+        }
     </style>
 </head>
 <body>
-    <div id="ui">Score: <span id="score">0</span> | Health: <span id="health">100</span></div>
-    <div id="crosshair"></div>
+    <div id="ui">Счёт: <span id="score">0</span> | Здоровье: <span id="health">100</span></div>
+    <div id="crosshair" style="display: none;"></div>
     <div id="sensitivity-container">
-        Mouse Sensitivity: <input type="range" id="mouseSensitivity" min="0.5" max="3" step="0.1" value="1">
+        Чувствительность мыши: <input type="range" id="mouseSensitivity" min="0.5" max="3" step="0.1" value="1">
     </div>
     <div id="screamer">
         <img id="screamer-img" src="" alt="Screamer">
     </div>
     <div id="power-ui"></div>
-    <div id="black-ui">Black: 0/20</div>
+    <div id="black-ui">Черные: 0/20</div>
+    <div id="instructions">
+        <p>Нажмите куда-нибудь, чтобы играть и заблокировать мышь.</p>
+        <p>Если не работает, попробуйте запустить на локальном сервере (например, через Python's http.server) или в другом браузере. Блокировка указателя может быть ограничена в локальных файлах.</p>
+        <p>Управление: WASD для движения, Пробел для прыжка, Мышь для взгляда, E для взаимодействия с торговцем, F для переключения фонарика.</p>
+    </div>
+    <div id="shop">
+        <button id="close-shop">Закрыть</button>
+        <h2>Магазин торговца</h2>
+        <ul>
+            <li>Улучшенный фонарик (3 черных кубика) <button onclick="buyItem('improvedFlashlight')">Купить</button></li>
+            <li>Увеличение длительности способностей +5с (2 черных кубика) <button onclick="buyItem('powerDuration')">Купить</button></li>
+            <li>Сапоги 2 уровня (Скорость +) (3 черных кубика) <button onclick="buyItem('boots2')">Купить</button></li>
+            <li>Сапоги 3 уровня (Скорость ++) (4 черных кубика) <button onclick="buyItem('boots3')">Купить</button></li>
+            <li>Супер сапоги (Супер скорость) (7 черных кубиков) <button onclick="buyItem('superBoots')">Купить</button></li>
+            <li>Случайная способность (3 черных кубика) <button onclick="buyItem('randomPower')">Купить</button></li>
+            <li>Зелье здоровья (+50 Здоровья) (2 черных кубика) <button onclick="buyItem('healthPotion')">Купить</button></li>
+            <li>Зелье заморозки врагов (Заморозить всех врагов на 10с) (4 черных кубика) <button onclick="buyItem('freezePotion')">Купить</button></li>
+            <li>Множитель монет (x2 монет на 30с) (3 черных кубика) <button onclick="buyItem('coinMultiplier')">Купить</button></li>
+            <li>Зелье неуязвимости (Неуязвим на 15с) (5 черных кубиков) <button onclick="buyItem('invincibilityPotion')">Купить</button></li>
+        </ul>
+    </div>
+    <div id="rotate-message">
+        Пожалуйста, поверните устройство в горизонтальный режим для лучшего опыта.
+    </div>
     <script type="importmap">
         {
             "imports": {
@@ -100,7 +189,7 @@
         // Инициализация сцены
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x111111);
-        scene.fog = new THREE.FogExp2(0x111111, 0.005);
+        scene.fog = new THREE.FogExp2(0x111111, 0.002); // Reduced density for less fog
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -108,14 +197,35 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
         // Управление PointerLockControls
-        const controls = new PointerLockControls(camera, renderer.domElement);
-        document.addEventListener('click', () => {
-            controls.lock();
+        const controls = new PointerLockControls(camera, document.body);
+        // Handle pointer lock errors
+        document.addEventListener('pointerlockerror', (event) => {
+            console.error('Pointer Lock Error:', event);
+            document.getElementById('instructions').innerHTML += '<p>Блокировка указателя не удалась. Проверьте консоль для деталей или попробуйте другой браузер/настройку.</p>';
         });
+        // Override lock to handle promise rejection
+        const originalLock = controls.lock.bind(controls);
+        controls.lock = function() {
+            const promise = originalLock();
+            if (promise instanceof Promise) {
+                promise.catch((err) => {
+                    console.error('Pointer lock rejected:', err);
+                });
+            }
+        };
+        // Click to lock
+        document.addEventListener('click', () => {
+            if (!controls.isLocked) {
+                controls.lock();
+            }
+        });
+        const instructions = document.getElementById('instructions');
         controls.addEventListener('lock', () => {
+            instructions.style.display = 'none';
             document.getElementById('crosshair').style.display = 'block';
         });
         controls.addEventListener('unlock', () => {
+            instructions.style.display = 'flex';
             document.getElementById('crosshair').style.display = 'none';
         });
         // Настройка чувствительности мыши
@@ -145,23 +255,56 @@
             speed: 0.5,
             score: 0,
             health: 100,
-            blackCollected: 0
+            blackCollected: 0,
+            powerDuration: 30000,
+            flashlightLevel: 0,
+            bootsLevel: 0,
+            coinMultiplier: 1,
+            coinMultiplierStart: 0
         };
         let onGround = true;
         let walkTime = 0;
         let firstDamage = true;
+        // Фонарик
+        const flashlight = new THREE.SpotLight(0xffffff, 0, 100, Math.PI/3, 0.5, 2);
+        flashlight.castShadow = true;
+        flashlight.shadow.mapSize.width = 1024;
+        flashlight.shadow.mapSize.height = 1024;
+        flashlight.position.set(0, 0, 0);
+        const flashlightTarget = new THREE.Object3D();
+        flashlightTarget.position.set(0, 0, -1);
+        flashlight.target = flashlightTarget;
+        camera.add(flashlight);
+        camera.add(flashlightTarget);
+        let flashlightOn = false;
         // Массив скримеров
         const screamerImages = [
             'https://www.watchmojo.com/uploads/thumbs720/VG-RP-Top10-Jump-Scares-In-Videogames-720p30.jpg',
             'https://www.watchmojo.com/uploads/thumbs720/MP-10-Scariest-Moments-in-Silent-Hill_Z6U4Z8-V3.webp',
             'https://i.ytimg.com/vi/l_1EwIIcTks/sddefault.jpg',
             'https://cdn.mos.cms.futurecdn.net/v2/t:0,l:140,cw:1069,ch:802,q:80,w:1069/g3oRWf7ptRJgnvsw2v8fyS.jpg',
-            'https://hard-drive.net/wp-content/uploads/2023/12/Listicle-Thumbnail2.jpg.webp'
+            'https://i.ytimg.com/vi/yHr_Jm2hGig/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDBTmoKQS_kGXKqomUsfiFO8m7zCg'
         ];
         // Управление клавишами
         const keys = {};
-        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'KeyF') {
+                flashlightOn = !flashlightOn;
+                updateFlashlight();
+            }
+        });
         document.addEventListener('keyup', (e) => keys[e.code] = false);
+        // Обновление фонарика
+        function updateFlashlight() {
+            if (flashlightOn) {
+                flashlight.intensity = 2 + player.flashlightLevel * 1;
+                flashlight.distance = 100 + player.flashlightLevel * 50;
+                flashlight.angle = Math.PI/3 + player.flashlightLevel * (Math.PI/10);
+            } else {
+                flashlight.intensity = 0;
+            }
+        }
         // Ноги игрока
         const body = new THREE.Group();
         const legMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, metalness: 0 });
@@ -226,6 +369,22 @@
             }
             const wall = new THREE.Mesh(geo, wallMaterial);
             wall.position.set(pos[0], pos[1] + 2, pos[2]);
+            wall.castShadow = true;
+            wall.receiveShadow = true;
+            scene.add(wall);
+            walls.push(wall);
+        });
+        // Комната торговца
+        const traderRoomWalls = [
+            { geo: new THREE.BoxGeometry(20, 4, wallThin), pos: [140, 2, 130] }, // bottom
+            { geo: new THREE.BoxGeometry(20, 4, wallThin), pos: [140, 2, 150] }, // top
+            { geo: new THREE.BoxGeometry(wallThin, 4, 20), pos: [130, 2, 140] }, // left
+            { geo: new THREE.BoxGeometry(wallThin, 4, 10), pos: [150, 2, 135] }, // right partial for door
+            { geo: new THREE.BoxGeometry(wallThin, 4, 10), pos: [150, 2, 145] }  // right partial
+        ];
+        traderRoomWalls.forEach(w => {
+            const wall = new THREE.Mesh(w.geo, wallMaterial);
+            wall.position.set(...w.pos);
             wall.castShadow = true;
             wall.receiveShadow = true;
             scene.add(wall);
@@ -373,6 +532,8 @@
         ];
         let activePower = null;
         let powerStartTime = 0;
+        let freezeStartTime = 0;
+        let invincibilityStartTime = 0;
         // Лагерь с торговцем
         const traderPosition = new THREE.Vector3(140, 1, 140);
         const trader = createCharacter(0x0000ff);
@@ -383,9 +544,9 @@
         let doorBox = null;
         const doorPosition = new THREE.Vector3(145, 2, 0);
         // Освещение
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.3);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5); // Increased intensity
         scene.add(hemiLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5); // Increased intensity
         directionalLight.position.set(0, 200, 100);
         directionalLight.castShadow = true;
         directionalLight.shadow.mapSize.width = 2048;
@@ -397,6 +558,8 @@
         directionalLight.shadow.camera.near = 0.1;
         directionalLight.shadow.camera.far = 400;
         scene.add(directionalLight);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Added ambient light
+        scene.add(ambientLight);
         // Проверка столкновений для персонажей
         function characterCollision(newPosition) {
             const charBox = new THREE.Box3().setFromCenterAndSize(
@@ -436,7 +599,7 @@
                 if (playerBox.intersectsBox(coinBox)) {
                     scene.remove(coin);
                     coins.splice(index, 1);
-                    player.score += 1;
+                    player.score += 1 * player.coinMultiplier;
                     document.getElementById('score').innerText = player.score;
                 }
             });
@@ -501,17 +664,19 @@
                     scene.remove(cube);
                     blackCubes.splice(index, 1);
                     player.blackCollected += 1;
-                    document.getElementById('black-ui').innerText = `Black: ${player.blackCollected}/20`;
+                    document.getElementById('black-ui').innerText = `Черные: ${player.blackCollected}/20`;
                 }
             });
         }
         // Логика врагов
         function updateEnemies() {
             const currentTime = performance.now();
+            const frozen = activePower === 'freezeEnemies' || (freezeStartTime > 0 && currentTime - freezeStartTime < 10000);
             enemies.forEach((enemy, index) => {
                 const distance = camera.position.distanceTo(enemy.position);
                 if (distance < 5 && currentTime - enemy.userData.lastAttackTime > 1000) {
-                    if (activePower !== 'invincible') {
+                    const invincible = activePower === 'invincible' || (invincibilityStartTime > 0 && currentTime - invincibilityStartTime < 15000);
+                    if (!invincible) {
                         player.health -= 10;
                         document.getElementById('health').innerText = player.health;
                     }
@@ -519,7 +684,11 @@
                     enemy.userData.lastAttackTime = currentTime;
                     if (firstDamage) {
                         const randomImage = screamerImages[Math.floor(Math.random() * screamerImages.length)];
-                        document.getElementById('screamer-img').src = randomImage;
+                        const screamerImg = document.getElementById('screamer-img');
+                        screamerImg.src = randomImage;
+                        screamerImg.onerror = () => {
+                            console.error('Failed to load screamer image:', randomImage);
+                        };
                         document.getElementById('screamer').style.display = 'flex';
                         setTimeout(() => {
                             document.getElementById('screamer').style.display = 'none';
@@ -532,7 +701,7 @@
                     }
                 }
                 // Движение врага
-                if (activePower !== 'freezeEnemies') {
+                if (!frozen) {
                     let direction = new THREE.Vector3();
                     const chase = player.blackCollected >= 20 || distance < 50;
                     if (chase) {
@@ -598,22 +767,110 @@
         // Логика торговца
         function checkTrader() {
             const distance = camera.position.distanceTo(traderPosition);
-            if (distance < 5 && keys['KeyE'] && player.score >= 1) {
-                player.score -= 1;
-                document.getElementById('score').innerText = player.score;
-                player.health = Math.min(player.health + 20, 100);
-                document.getElementById('health').innerText = player.health;
+            if (distance < 5 && keys['KeyE']) {
+                document.getElementById('shop').style.display = 'block';
             }
         }
+        // Функция покупки
+        window.buyItem = function(item) {
+            let cost = 0;
+            switch (item) {
+                case 'improvedFlashlight':
+                    cost = 3;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        player.flashlightLevel += 1;
+                        updateFlashlight();
+                    }
+                    break;
+                case 'powerDuration':
+                    cost = 2;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        player.powerDuration += 5000;
+                    }
+                    break;
+                case 'boots2':
+                    cost = 3;
+                    if (player.blackCollected >= cost && player.bootsLevel === 0) {
+                        player.blackCollected -= cost;
+                        player.bootsLevel = 1;
+                        player.speed = 0.7;
+                    }
+                    break;
+                case 'boots3':
+                    cost = 4;
+                    if (player.blackCollected >= cost && player.bootsLevel === 1) {
+                        player.blackCollected -= cost;
+                        player.bootsLevel = 2;
+                        player.speed = 1.0;
+                    }
+                    break;
+                case 'superBoots':
+                    cost = 7;
+                    if (player.blackCollected >= cost && player.bootsLevel === 2) {
+                        player.blackCollected -= cost;
+                        player.bootsLevel = 3;
+                        player.speed = 1.5;
+                    }
+                    break;
+                case 'randomPower':
+                    cost = 3;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        activePower = superPowers[Math.floor(Math.random() * superPowers.length)];
+                        powerStartTime = performance.now();
+                    }
+                    break;
+                case 'healthPotion':
+                    cost = 2;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        player.health = Math.min(player.health + 50, 100);
+                        document.getElementById('health').innerText = player.health;
+                    }
+                    break;
+                case 'freezePotion':
+                    cost = 4;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        freezeStartTime = performance.now();
+                    }
+                    break;
+                case 'coinMultiplier':
+                    cost = 3;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        player.coinMultiplier = 2;
+                        player.coinMultiplierStart = performance.now();
+                    }
+                    break;
+                case 'invincibilityPotion':
+                    cost = 5;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        invincibilityStartTime = performance.now();
+                    }
+                    break;
+            }
+            document.getElementById('black-ui').innerText = `Черные: ${player.blackCollected}/20`;
+        };
+        // Закрытие магазина
+        document.getElementById('close-shop').addEventListener('click', () => {
+            document.getElementById('shop').style.display = 'none';
+        });
         // Обновление способностей
         function updatePowers() {
             const currentTime = performance.now();
-            if (activePower && currentTime < powerStartTime + 30000) {
-                const remaining = Math.ceil((powerStartTime + 30000 - currentTime) / 1000);
+            if (activePower && currentTime < powerStartTime + player.powerDuration) {
+                const remaining = Math.ceil((powerStartTime + player.powerDuration - currentTime) / 1000);
                 document.getElementById('power-ui').innerText = `${activePower} (${remaining}s)`;
             } else {
                 activePower = null;
                 document.getElementById('power-ui').innerText = '';
+            }
+            if (player.coinMultiplier > 1 && currentTime > player.coinMultiplierStart + 30000) {
+                player.coinMultiplier = 1;
             }
         }
         // Создание двери
@@ -708,13 +965,13 @@
             checkTrader();
             // Проверка здоровья
             if (player.health <= 0) {
-                document.getElementById('ui').innerText = 'Game Over! Score: ' + player.score;
+                document.getElementById('ui').innerText = 'Игра окончена! Счёт: ' + player.score;
             }
             // Проверка входа в дверь
             if (door) {
                 const playerBox = new THREE.Box3().setFromCenterAndSize(camera.position, new THREE.Vector3(0.5, 1.5, 0.5));
                 if (playerBox.intersectsBox(doorBox)) {
-                    document.getElementById('ui').innerText = 'You Win! Entered the door!';
+                    document.getElementById('ui').innerText = 'Вы выиграли! Вошли в дверь!';
                 }
             }
             renderer.render(scene, camera);
@@ -725,6 +982,18 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+        // Обработка ориентации для мобильных устройств
+        function checkOrientation() {
+            const rotateMessage = document.getElementById('rotate-message');
+            if (window.innerHeight > window.innerWidth) {
+                rotateMessage.style.display = 'block';
+            } else {
+                rotateMessage.style.display = 'none';
+            }
+        }
+        window.addEventListener('orientationchange', checkOrientation);
+        window.addEventListener('resize', checkOrientation);
+        checkOrientation();
         // Запуск игры
         camera.position.set(0, 1.5, 0);
         animate();
