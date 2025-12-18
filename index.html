@@ -170,6 +170,8 @@
             <li>Зелье заморозки врагов (Заморозить всех врагов на 10с) (4 черных кубика) <button onclick="buyItem('freezePotion')">Купить</button></li>
             <li>Множитель монет (x2 монет на 30с) (3 черных кубика) <button onclick="buyItem('coinMultiplier')">Купить</button></li>
             <li>Зелье неуязвимости (Неуязвим на 15с) (5 черных кубиков) <button onclick="buyItem('invincibilityPotion')">Купить</button></li>
+            <li>Увеличение максимального здоровья +50 (4 черных кубика) <button onclick="buyItem('maxHealthUpgrade')">Купить</button></li>
+            <li>Улучшение брони (Снижение урона) (5 черных кубиков) <button onclick="buyItem('armorUpgrade')">Купить</button></li>
         </ul>
     </div>
     <div id="rotate-message">
@@ -220,13 +222,17 @@
             }
         });
         const instructions = document.getElementById('instructions');
+        const shopDiv = document.getElementById('shop');
+        const crosshair = document.getElementById('crosshair');
         controls.addEventListener('lock', () => {
             instructions.style.display = 'none';
-            document.getElementById('crosshair').style.display = 'block';
+            crosshair.style.display = 'block';
         });
         controls.addEventListener('unlock', () => {
-            instructions.style.display = 'flex';
-            document.getElementById('crosshair').style.display = 'none';
+            crosshair.style.display = 'none';
+            if (shopDiv.style.display !== 'block') {
+                instructions.style.display = 'flex';
+            }
         });
         // Настройка чувствительности мыши
         let mouseSensitivity = 1;
@@ -255,6 +261,8 @@
             speed: 0.5,
             score: 0,
             health: 100,
+            maxHealth: 100,
+            armorLevel: 0,
             blackCollected: 0,
             powerDuration: 30000,
             flashlightLevel: 0,
@@ -277,6 +285,7 @@
         camera.add(flashlight);
         camera.add(flashlightTarget);
         let flashlightOn = false;
+        updateFlashlight(); // Initial call to set intensity
         // Массив скримеров
         const screamerImages = [
             'https://www.watchmojo.com/uploads/thumbs720/VG-RP-Top10-Jump-Scares-In-Videogames-720p30.jpg',
@@ -379,8 +388,8 @@
             { geo: new THREE.BoxGeometry(20, 4, wallThin), pos: [140, 2, 130] }, // bottom
             { geo: new THREE.BoxGeometry(20, 4, wallThin), pos: [140, 2, 150] }, // top
             { geo: new THREE.BoxGeometry(wallThin, 4, 20), pos: [130, 2, 140] }, // left
-            { geo: new THREE.BoxGeometry(wallThin, 4, 10), pos: [150, 2, 135] }, // right partial for door
-            { geo: new THREE.BoxGeometry(wallThin, 4, 10), pos: [150, 2, 145] }  // right partial
+            { geo: new THREE.BoxGeometry(wallThin, 4, 8), pos: [150, 2, 134] }, // right partial lower
+            { geo: new THREE.BoxGeometry(wallThin, 4, 8), pos: [150, 2, 146] } // right partial upper
         ];
         traderRoomWalls.forEach(w => {
             const wall = new THREE.Mesh(w.geo, wallMaterial);
@@ -390,6 +399,14 @@
             scene.add(wall);
             walls.push(wall);
         });
+        // Добавляем дверь для торговца (визуальная, но проходимая)
+        const traderDoorPosition = new THREE.Vector3(150, 2, 140);
+        const traderDoorGeo = new THREE.BoxGeometry(wallThin, 4, 4);
+        const traderDoorMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Цвет двери
+        const traderDoor = new THREE.Mesh(traderDoorGeo, traderDoorMaterial);
+        traderDoor.position.copy(traderDoorPosition);
+        scene.add(traderDoor);
+        // Не добавляем дверь в walls, чтобы игрок мог проходить сквозь неё
         // Пол
         const floorGeometry = new THREE.PlaneGeometry(400, 400);
         const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7, metalness: 0, side: THREE.DoubleSide });
@@ -615,7 +632,7 @@
                 if (playerBox.intersectsBox(fruitBox)) {
                     scene.remove(fruit);
                     fruits.splice(index, 1);
-                    player.health = Math.min(player.health + 20, 100);
+                    player.health = Math.min(player.health + 20, player.maxHealth);
                     document.getElementById('health').innerText = player.health;
                 }
             });
@@ -631,7 +648,7 @@
                 if (playerBox.intersectsBox(cubeBox)) {
                     scene.remove(cube);
                     greenCubes.splice(index, 1);
-                    player.health = Math.min(player.health + 10, 100);
+                    player.health = Math.min(player.health + 10, player.maxHealth);
                     document.getElementById('health').innerText = player.health;
                 }
             });
@@ -677,7 +694,8 @@
                 if (distance < 5 && currentTime - enemy.userData.lastAttackTime > 1000) {
                     const invincible = activePower === 'invincible' || (invincibilityStartTime > 0 && currentTime - invincibilityStartTime < 15000);
                     if (!invincible) {
-                        player.health -= 10;
+                        const damage = 10 * (1 - 0.2 * player.armorLevel);
+                        player.health -= damage;
                         document.getElementById('health').innerText = player.health;
                     }
                     enemy.userData.hits += 1;
@@ -768,7 +786,8 @@
         function checkTrader() {
             const distance = camera.position.distanceTo(traderPosition);
             if (distance < 5 && keys['KeyE']) {
-                document.getElementById('shop').style.display = 'block';
+                shopDiv.style.display = 'block';
+                controls.unlock();
             }
         }
         // Функция покупки
@@ -826,7 +845,7 @@
                     cost = 2;
                     if (player.blackCollected >= cost) {
                         player.blackCollected -= cost;
-                        player.health = Math.min(player.health + 50, 100);
+                        player.health = Math.min(player.health + 50, player.maxHealth);
                         document.getElementById('health').innerText = player.health;
                     }
                     break;
@@ -852,12 +871,27 @@
                         invincibilityStartTime = performance.now();
                     }
                     break;
+                case 'maxHealthUpgrade':
+                    cost = 4;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        player.maxHealth += 50;
+                    }
+                    break;
+                case 'armorUpgrade':
+                    cost = 5;
+                    if (player.blackCollected >= cost) {
+                        player.blackCollected -= cost;
+                        player.armorLevel += 1;
+                    }
+                    break;
             }
             document.getElementById('black-ui').innerText = `Черные: ${player.blackCollected}/20`;
         };
         // Закрытие магазина
         document.getElementById('close-shop').addEventListener('click', () => {
-            document.getElementById('shop').style.display = 'none';
+            shopDiv.style.display = 'none';
+            controls.lock();
         });
         // Обновление способностей
         function updatePowers() {
@@ -933,6 +967,9 @@
                 camera.position.y = 1.5;
                 player.velocity.y = 0;
                 onGround = true;
+            } else if (activePower === 'fly' && camera.position.y < 1.5) {
+                camera.position.y = 1.5;
+                player.velocity.y = 0;
             }
             // Анимация ног и покачивание головы
             leftLeg.rotation.x = Math.sin(walkTime) * 0.5;
